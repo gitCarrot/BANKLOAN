@@ -1,101 +1,955 @@
+'use client';
+
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import Link from "next/link";
 import Image from "next/image";
+import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { getApplicationById } from "@/app/actions/applications";
+import { getJudgmentByApplicationId } from "@/app/actions/judgments";
+import { getContractByApplicationId } from "@/app/actions/contracts";
+import { getBalance } from "@/app/actions/balances";
+import { getRepayments } from "@/app/actions/repayments";
+import { Loader2, CheckCircle, AlertCircle, Clock, FileText, CreditCard, DollarSign, FileSignature, BanknoteIcon, PieChart, TrendingUp, Calendar } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { format, addMonths } from "date-fns";
+import { Progress } from "@/components/ui/progress";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [applicationId, setApplicationId] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState<any>(null);
+  const [judgmentStatus, setJudgmentStatus] = useState<any>(null);
+  const [contractStatus, setContractStatus] = useState<any>(null);
+  const [balanceData, setBalanceData] = useState<any>(null);
+  const [repaymentsData, setRepaymentsData] = useState<any[]>([]);
+  const [loanStats, setLoanStats] = useState<{
+    remainingBalance: number;
+    totalPaid: number;
+    monthlyPayment: number;
+    totalInterest: number;
+    remainingMonths: number;
+    completionPercentage: number;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const checkApplicationStatus = async () => {
+    if (!applicationId.trim()) {
+      setError("Please enter an Application ID");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      setJudgmentStatus(null);
+      setContractStatus(null);
+      setBalanceData(null);
+      setRepaymentsData([]);
+      setLoanStats(null);
+      
+      const { application, error: apiError } = await getApplicationById(applicationId);
+      
+      if (apiError) {
+        setError(apiError);
+        setApplicationStatus(null);
+        return;
+      }
+      
+      if (!application) {
+        setError("Application not found. Please check the ID and try again.");
+        setApplicationStatus(null);
+        return;
+      }
+      
+      setApplicationStatus(application);
+      
+      // 심사 정보 가져오기
+      try {
+        const judgment = await getJudgmentByApplicationId(parseInt(applicationId));
+        setJudgmentStatus(judgment);
+      } catch (err) {
+        console.log("No judgment found for this application");
+      }
+      
+      // 계약 정보 가져오기
+      try {
+        const contract = await getContractByApplicationId(parseInt(applicationId));
+        setContractStatus(contract);
+        
+        // 계약이 있고 active 상태인 경우 잔액과 상환 정보 가져오기
+        if (contract && (contract.status === 'active' || contract.status === 'signed')) {
+          try {
+            // 잔액 정보 가져오기
+            const balance = await getBalance(applicationId);
+            setBalanceData(balance);
+            
+            // 상환 정보 가져오기
+            const repayments = await getRepayments(applicationId);
+            setRepaymentsData(repayments);
+            
+            // 대출 통계 계산
+            calculateLoanStats(contract, balance, repayments);
+          } catch (err) {
+            console.log("Error fetching balance or repayments:", err);
+          }
+        }
+      } catch (err) {
+        console.log("No contract found for this application");
+      }
+      
+    } catch (err) {
+      console.error("Error checking application status:", err);
+      setError("An error occurred while checking the application status. Please try again.");
+      setApplicationStatus(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 대출 통계 계산 함수
+  const calculateLoanStats = (contract: any, balance: any, repayments: any[]) => {
+    if (!contract) return;
+    
+    // 총 대출 금액
+    const totalAmount = contract.amount;
+    
+    // 남은 잔액 (잔액 정보가 있으면 사용, 없으면 총 대출 금액 사용)
+    const remainingBalance = balance ? balance.balance : totalAmount;
+    
+    // 총 상환 금액
+    const totalPaid = totalAmount - remainingBalance;
+    
+    // 월 상환액 계산 (원리금균등상환 방식)
+    const monthlyRate = contract.interestRate / 100 / 12;
+    const monthlyPayment = totalAmount * (monthlyRate * Math.pow(1 + monthlyRate, contract.term)) / 
+                          (Math.pow(1 + monthlyRate, contract.term) - 1);
+    
+    // 총 이자 금액
+    const totalInterest = (monthlyPayment * contract.term) - totalAmount;
+    
+    // 남은 개월 수 계산
+    const remainingMonths = Math.ceil(remainingBalance / monthlyPayment);
+    
+    // 완료 비율 계산
+    const completionPercentage = Math.min(100, Math.round((totalPaid / totalAmount) * 100));
+    
+    setLoanStats({
+      remainingBalance,
+      totalPaid,
+      monthlyPayment,
+      totalInterest,
+      remainingMonths,
+      completionPercentage
+    });
+  };
+
+  // Function to determine the current step in the loan process
+  const getCurrentStep = () => {
+    if (!applicationStatus) return 0;
+    
+    // 대출금 지급 완료
+    if (applicationStatus.contractedAt) return 5;
+    
+    // 계약 체결됨
+    if (contractStatus && contractStatus.status === 'signed') return 4;
+    
+    // 계약 대기 중
+    if (judgmentStatus && judgmentStatus.approvalAmount > 0) return 3;
+    
+    // 심사 중
+    if (applicationStatus.appliedAt && !judgmentStatus) return 2;
+    
+    // 신청 완료
+    return 1;
+  };
+
+  const currentStep = getCurrentStep();
+  
+  // 상태에 따른 배지 색상 및 텍스트
+  const getStatusBadge = () => {
+    switch(currentStep) {
+      case 1:
+        return <Badge className="bg-blue-500">Application Submitted</Badge>;
+      case 2:
+        return <Badge className="bg-yellow-500">Under Review</Badge>;
+      case 3:
+        return <Badge className="bg-green-500">Approved</Badge>;
+      case 4:
+        return <Badge className="bg-purple-500">Contract Signed</Badge>;
+      case 5:
+        return <Badge className="bg-emerald-500">Loan Disbursed</Badge>;
+      default:
+        return null;
+    }
+  };
+
+  // 예상 상환 완료일 계산
+  const getEstimatedCompletionDate = () => {
+    if (!contractStatus || !contractStatus.activatedAt || !loanStats) return 'N/A';
+    
+    const activationDate = new Date(contractStatus.activatedAt);
+    return format(addMonths(activationDate, loanStats.remainingMonths), 'PPP');
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen">
+      {/* Hero Section */}
+      <section className="py-20 md:py-28">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-[1440px]">
+          <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
+            <motion.div 
+              className="flex flex-col justify-center space-y-4"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none">
+                  Modern Banking Solutions for Your Financial Needs
+                </h1>
+                <p className="max-w-[600px] text-muted-foreground md:text-xl">
+                  Get the loan you need with our streamlined application process and competitive rates.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 min-[400px]:flex-row">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button asChild size="lg">
+                    <Link href="/counsel">Apply for a Loan</Link>
+                  </Button>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button asChild variant="outline" size="lg">
+                    <Link href="/about">Learn More</Link>
+                  </Button>
+                </motion.div>
+              </div>
+            </motion.div>
+            <motion.div 
+              className="flex items-center justify-center"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <div className="relative h-[350px] w-full overflow-hidden rounded-xl bg-muted">
+                <Image
+                  src="https://images.unsplash.com/photo-1579621970795-87facc2f976d?q=80&w=2070&auto=format&fit=crop"
+                  alt="Banking illustration"
+                  fill
+                  className="object-cover"
+                  priority
+                />
+              </div>
+            </motion.div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </section>
+
+      {/* Application Status Tracker Section */}
+      <section className="py-12 bg-slate-50 dark:bg-slate-900">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-[1440px]">
+          <motion.div 
+            className="flex flex-col items-center justify-center space-y-4 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">Track Your Application</h2>
+              <p className="max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                Enter your Application ID to check the status of your loan application
+              </p>
+            </div>
+            
+            <div className="w-full max-w-md mx-auto mt-4">
+              <div className="flex space-x-2">
+                <Input
+                  type="text"
+                  placeholder="Enter your Application ID"
+                  value={applicationId}
+                  onChange={(e) => setApplicationId(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={checkApplicationStatus} 
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Checking...
+                    </>
+                  ) : "Check Status"}
+                </Button>
+              </div>
+              
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-2 text-sm text-red-500 flex items-center"
+                >
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {error}
+                </motion.div>
+              )}
+            </div>
+            
+            {applicationStatus && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="w-full max-w-3xl mx-auto mt-6"
+              >
+                <Card className="overflow-hidden border-2">
+                  <div className="bg-primary text-primary-foreground p-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-bold">
+                        Application #{applicationStatus.applicationId}
+                      </h3>
+                      {getStatusBadge()}
+                    </div>
+                    <p className="text-sm opacity-90 mt-1">
+                      Applied on {format(new Date(applicationStatus.appliedAt || new Date()), 'PPP')}
+                    </p>
+                  </div>
+                  
+                  <CardContent className="pt-6">
+                    <div className="grid grid-cols-2 gap-6 md:grid-cols-4 mb-8">
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Applicant</p>
+                        <p className="font-medium">{applicationStatus.name}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Requested Amount</p>
+                        <p className="font-medium">${applicationStatus.hopeAmount?.toLocaleString() || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Approved Amount</p>
+                        <p className="font-medium">
+                          {judgmentStatus ? 
+                            `$${judgmentStatus.approvalAmount.toLocaleString()}` : 
+                            applicationStatus.approvalAmount ? 
+                              `$${applicationStatus.approvalAmount.toLocaleString()}` : 
+                              'Pending'}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Interest Rate</p>
+                        <p className="font-medium">
+                          {judgmentStatus ? 
+                            `${judgmentStatus.approvalInterestRate}%` : 
+                            applicationStatus.interestRate ? 
+                              `${applicationStatus.interestRate}%` : 
+                              'Pending'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="relative mb-10">
+                      {/* Progress bar */}
+                      <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 z-0"></div>
+                      <div className={`absolute top-1/2 left-0 h-1 -translate-y-1/2 z-0 bg-primary transition-all duration-500`} 
+                           style={{ width: `${(currentStep - 1) * 25}%` }}></div>
+                      
+                      {/* Steps */}
+                      <div className="relative z-10 flex justify-between">
+                        {/* Step 1: Application Submitted */}
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300",
+                            currentStep >= 1 
+                              ? "bg-primary text-primary-foreground shadow-lg" 
+                              : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                          )}>
+                            {currentStep > 1 ? (
+                              <CheckCircle className="h-5 w-5" />
+                            ) : (
+                              <FileText className="h-5 w-5" />
+                            )}
+                          </div>
+                          <span className="text-xs text-center font-medium">Application<br />Submitted</span>
+                        </div>
+                        
+                        {/* Step 2: Under Review */}
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300",
+                            currentStep >= 2 
+                              ? "bg-primary text-primary-foreground shadow-lg" 
+                              : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                          )}>
+                            {currentStep > 2 ? (
+                              <CheckCircle className="h-5 w-5" />
+                            ) : currentStep === 2 ? (
+                              <Clock className="h-5 w-5 animate-pulse" />
+                            ) : (
+                              <Clock className="h-5 w-5" />
+                            )}
+                          </div>
+                          <span className="text-xs text-center font-medium">Under<br />Review</span>
+                        </div>
+                        
+                        {/* Step 3: Approved */}
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300",
+                            currentStep >= 3 
+                              ? "bg-primary text-primary-foreground shadow-lg" 
+                              : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                          )}>
+                            {currentStep > 3 ? (
+                              <CheckCircle className="h-5 w-5" />
+                            ) : currentStep === 3 ? (
+                              <CreditCard className="h-5 w-5" />
+                            ) : (
+                              <CreditCard className="h-5 w-5" />
+                            )}
+                          </div>
+                          <span className="text-xs text-center font-medium">Approved</span>
+                        </div>
+                        
+                        {/* Step 4: Contract Signed */}
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300",
+                            currentStep >= 4 
+                              ? "bg-primary text-primary-foreground shadow-lg" 
+                              : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                          )}>
+                            {currentStep > 4 ? (
+                              <CheckCircle className="h-5 w-5" />
+                            ) : currentStep === 4 ? (
+                              <FileSignature className="h-5 w-5" />
+                            ) : (
+                              <FileSignature className="h-5 w-5" />
+                            )}
+                          </div>
+                          <span className="text-xs text-center font-medium">Contract<br />Signed</span>
+                        </div>
+                        
+                        {/* Step 5: Loan Disbursed */}
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300",
+                            currentStep >= 5 
+                              ? "bg-primary text-primary-foreground shadow-lg" 
+                              : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                          )}>
+                            {currentStep === 5 ? (
+                              <BanknoteIcon className="h-5 w-5" />
+                            ) : (
+                              <BanknoteIcon className="h-5 w-5" />
+                            )}
+                          </div>
+                          <span className="text-xs text-center font-medium">Loan<br />Disbursed</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* 상태별 추가 정보 및 액션 버튼 */}
+                    <div className="mt-6 border-t pt-6">
+                      {currentStep === 1 && (
+                        <div className="text-center">
+                          <p className="text-muted-foreground mb-4">Your application has been submitted and is waiting for review.</p>
+                          <Button asChild variant="outline">
+                            <Link href={`/judgments?applicationId=${applicationStatus.applicationId}`}>
+                              Check Judgment Status
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {currentStep === 2 && (
+                        <div className="text-center">
+                          <p className="text-muted-foreground mb-4">Your application is currently under review. We'll notify you once the review is complete.</p>
+                          <Button asChild variant="outline">
+                            <Link href={`/judgments?applicationId=${applicationStatus.applicationId}`}>
+                              Check Judgment Status
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {currentStep === 3 && (
+                        <div className="text-center">
+                          <p className="text-muted-foreground mb-4">
+                            Congratulations! Your loan has been approved for ${judgmentStatus?.approvalAmount.toLocaleString() || applicationStatus.approvalAmount?.toLocaleString()}.
+                          </p>
+                          <Button asChild>
+                            <Link href={`/contracts?applicationId=${applicationStatus.applicationId}`}>
+                              Proceed to Contract
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {currentStep === 4 && (
+                        <div className="text-center">
+                          <p className="text-muted-foreground mb-4">
+                            Your contract has been signed. The loan will be disbursed soon.
+                          </p>
+                          <Button asChild>
+                            <Link href={`/contracts?applicationId=${applicationStatus.applicationId}`}>
+                              View Contract Details
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {currentStep === 5 && (
+                        <div className="text-center">
+                          <p className="text-muted-foreground mb-4">
+                            Your loan has been disbursed. You can now view your repayment schedule.
+                          </p>
+                          <Button asChild>
+                            <Link href={`/repayments?applicationId=${applicationStatus.applicationId}`}>
+                              View Repayment Schedule
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+            
+            {/* 계약 상태 카드 - 계약이 있을 경우에만 표시 */}
+            {contractStatus && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="w-full max-w-3xl mx-auto mt-6"
+              >
+                <Card className="overflow-hidden border-2 border-primary/20">
+                  <div className="bg-secondary text-secondary-foreground p-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-bold">
+                        Contract Details
+                      </h3>
+                      <Badge className={cn(
+                        contractStatus.status === 'pending' && "bg-yellow-500",
+                        contractStatus.status === 'signed' && "bg-purple-500",
+                        contractStatus.status === 'active' && "bg-green-500",
+                        contractStatus.status === 'completed' && "bg-blue-500",
+                        contractStatus.status === 'cancelled' && "bg-red-500"
+                      )}>
+                        {contractStatus.status.charAt(0).toUpperCase() + contractStatus.status.slice(1)}
+                      </Badge>
+                    </div>
+                    <p className="text-sm opacity-90 mt-1">
+                      Contract #{contractStatus.contractId}
+                    </p>
+                  </div>
+                  
+                  <CardContent className="pt-6">
+                    <div className="grid grid-cols-2 gap-6 md:grid-cols-3 mb-8">
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Loan Amount</p>
+                        <p className="font-medium">${contractStatus.amount.toLocaleString()}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Interest Rate</p>
+                        <p className="font-medium">{contractStatus.interestRate}%</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Term</p>
+                        <p className="font-medium">{contractStatus.term} months</p>
+                      </div>
+                    </div>
+                    
+                    {/* 대출 통계 정보 - active 상태일 때만 표시 */}
+                    {contractStatus.status === 'active' && loanStats && (
+                      <div className="mb-8 border rounded-lg p-4">
+                        <h4 className="font-semibold text-lg mb-4">Loan Statistics</h4>
+                        
+                        <div className="space-y-6">
+                          {/* 상환 진행률 */}
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Repayment Progress</span>
+                              <span className="font-medium">{loanStats.completionPercentage}%</span>
+                            </div>
+                            <Progress value={loanStats.completionPercentage} className="h-2" />
+                          </div>
+                          
+                          {/* 통계 그리드 */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex items-start space-x-3 p-3 bg-muted/50 rounded-md">
+                              <div className="mt-0.5">
+                                <BanknoteIcon className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">Remaining Balance</p>
+                                <p className="text-lg font-bold">${loanStats.remainingBalance.toLocaleString()}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-start space-x-3 p-3 bg-muted/50 rounded-md">
+                              <div className="mt-0.5">
+                                <TrendingUp className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">Monthly Payment</p>
+                                <p className="text-lg font-bold">${Math.round(loanStats.monthlyPayment).toLocaleString()}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-start space-x-3 p-3 bg-muted/50 rounded-md">
+                              <div className="mt-0.5">
+                                <PieChart className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">Total Interest</p>
+                                <p className="text-lg font-bold">${Math.round(loanStats.totalInterest).toLocaleString()}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-start space-x-3 p-3 bg-muted/50 rounded-md">
+                              <div className="mt-0.5">
+                                <Calendar className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">Remaining Time</p>
+                                <p className="text-lg font-bold">{loanStats.remainingMonths} months</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* 예상 완료일 */}
+                          <div className="text-center pt-2">
+                            <p className="text-sm text-muted-foreground">
+                              Estimated completion date: <span className="font-medium">{getEstimatedCompletionDate()}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* 계약 진행 상태 */}
+                    <div className="relative mb-10">
+                      {/* Progress bar */}
+                      <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 z-0"></div>
+                      <div className={`absolute top-1/2 left-0 h-1 -translate-y-1/2 z-0 bg-secondary transition-all duration-500`} 
+                           style={{ 
+                             width: contractStatus.status === 'pending' ? '25%' : 
+                                    contractStatus.status === 'signed' ? '50%' : 
+                                    contractStatus.status === 'active' ? '75%' : 
+                                    contractStatus.status === 'completed' ? '100%' : '0%' 
+                           }}></div>
+                      
+                      {/* Steps */}
+                      <div className="relative z-10 flex justify-between">
+                        {/* Step 1: Contract Created */}
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300",
+                            ['pending', 'signed', 'active', 'completed'].includes(contractStatus.status)
+                              ? "bg-secondary text-secondary-foreground shadow-lg" 
+                              : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                          )}>
+                            {['signed', 'active', 'completed'].includes(contractStatus.status) ? (
+                              <CheckCircle className="h-5 w-5" />
+                            ) : (
+                              <FileText className="h-5 w-5" />
+                            )}
+                          </div>
+                          <span className="text-xs text-center font-medium">Contract<br />Created</span>
+                        </div>
+                        
+                        {/* Step 2: Contract Signed */}
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300",
+                            ['signed', 'active', 'completed'].includes(contractStatus.status)
+                              ? "bg-secondary text-secondary-foreground shadow-lg" 
+                              : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                          )}>
+                            {['active', 'completed'].includes(contractStatus.status) ? (
+                              <CheckCircle className="h-5 w-5" />
+                            ) : contractStatus.status === 'signed' ? (
+                              <FileSignature className="h-5 w-5" />
+                            ) : (
+                              <FileSignature className="h-5 w-5" />
+                            )}
+                          </div>
+                          <span className="text-xs text-center font-medium">Contract<br />Signed</span>
+                        </div>
+                        
+                        {/* Step 3: Loan Activated */}
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300",
+                            ['active', 'completed'].includes(contractStatus.status)
+                              ? "bg-secondary text-secondary-foreground shadow-lg" 
+                              : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                          )}>
+                            {contractStatus.status === 'completed' ? (
+                              <CheckCircle className="h-5 w-5" />
+                            ) : contractStatus.status === 'active' ? (
+                              <BanknoteIcon className="h-5 w-5" />
+                            ) : (
+                              <BanknoteIcon className="h-5 w-5" />
+                            )}
+                          </div>
+                          <span className="text-xs text-center font-medium">Loan<br />Activated</span>
+                        </div>
+                        
+                        {/* Step 4: Loan Completed */}
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300",
+                            contractStatus.status === 'completed'
+                              ? "bg-secondary text-secondary-foreground shadow-lg" 
+                              : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                          )}>
+                            <CheckCircle className="h-5 w-5" />
+                          </div>
+                          <span className="text-xs text-center font-medium">Loan<br />Completed</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* 계약 상태별 추가 정보 */}
+                    <div className="mt-6 border-t pt-6">
+                      {contractStatus.status === 'pending' && (
+                        <div className="text-center">
+                          <p className="text-muted-foreground mb-4">Your contract has been created and is waiting for your signature.</p>
+                          <Button asChild>
+                            <Link href={`/contracts?applicationId=${applicationStatus.applicationId}`}>
+                              Review and Sign Contract
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {contractStatus.status === 'signed' && (
+                        <div className="text-center">
+                          <p className="text-muted-foreground mb-4">
+                            Your contract has been signed on {contractStatus.signedAt ? format(new Date(contractStatus.signedAt), 'PPP') : 'N/A'}.
+                            The loan will be activated soon.
+                          </p>
+                          <Button asChild>
+                            <Link href={`/contracts?applicationId=${applicationStatus.applicationId}`}>
+                              View Contract Details
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {contractStatus.status === 'active' && (
+                        <div className="text-center">
+                          <p className="text-muted-foreground mb-4">
+                            Your loan was activated on {contractStatus.activatedAt ? format(new Date(contractStatus.activatedAt), 'PPP') : 'N/A'}.
+                            You can now view your repayment schedule.
+                          </p>
+                          <Button asChild>
+                            <Link href={`/repayments?applicationId=${applicationStatus.applicationId}`}>
+                              View Repayment Schedule
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {contractStatus.status === 'completed' && (
+                        <div className="text-center">
+                          <p className="text-muted-foreground mb-4">
+                            Congratulations! Your loan has been fully repaid.
+                          </p>
+                          <Button asChild variant="outline">
+                            <Link href={`/repayments?applicationId=${applicationStatus.applicationId}`}>
+                              View Repayment History
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {contractStatus.status === 'cancelled' && (
+                        <div className="text-center">
+                          <p className="text-muted-foreground mb-4">
+                            This contract has been cancelled.
+                          </p>
+                          <Button asChild variant="outline">
+                            <Link href="/counsel">
+                              Apply for a New Loan
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="bg-muted py-20">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-[1440px]">
+          <div className="flex flex-col items-center justify-center space-y-4 text-center">
+            <motion.div 
+              className="space-y-2"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+            >
+              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Our Services</h2>
+              <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                We offer a range of financial services to meet your needs
+              </p>
+            </motion.div>
+          </div>
+          <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 py-12 md:grid-cols-3">
+            <motion.div 
+              className="flex flex-col items-center space-y-4 rounded-lg border p-6"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              whileHover={{ y: -5 }}
+            >
+              <div className="rounded-full bg-primary p-3 text-primary-foreground">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-6 w-6"
+                >
+                  <path d="M5 22h14"></path>
+                  <path d="M5 2h14"></path>
+                  <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"></path>
+                  <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold">Loan Consultation</h3>
+              <p className="text-center text-muted-foreground">
+                Get expert advice on the best loan options for your specific needs.
+              </p>
+              <Button asChild variant="link">
+                <Link href="/counsel">Learn More</Link>
+              </Button>
+            </motion.div>
+            <motion.div 
+              className="flex flex-col items-center space-y-4 rounded-lg border p-6"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              whileHover={{ y: -5 }}
+            >
+              <div className="rounded-full bg-primary p-3 text-primary-foreground">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-6 w-6"
+                >
+                  <path d="M16 2v5h5"></path>
+                  <path d="M21 6v6.5c0 .8-.7 1.5-1.5 1.5h-7c-.8 0-1.5-.7-1.5-1.5v-9c0-.8.7-1.5 1.5-1.5H17l4 4z"></path>
+                  <path d="M7 8v8.8c0 .3.2.6.4.8.2.2.5.4.8.4H15"></path>
+                  <path d="M3 12v8.8c0 .3.2.6.4.8.2.2.5.4.8.4H11"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold">Loan Applications</h3>
+              <p className="text-center text-muted-foreground">
+                Apply for a loan with our streamlined application process.
+              </p>
+              <Button asChild variant="link">
+                <Link href="/applications">Learn More</Link>
+              </Button>
+            </motion.div>
+            <motion.div 
+              className="flex flex-col items-center space-y-4 rounded-lg border p-6"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              whileHover={{ y: -5 }}
+            >
+              <div className="rounded-full bg-primary p-3 text-primary-foreground">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-6 w-6"
+                >
+                  <path d="M12 2v20"></path>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold">Repayment Options</h3>
+              <p className="text-center text-muted-foreground">
+                Flexible repayment options to fit your financial situation.
+              </p>
+              <Button asChild variant="link">
+                <Link href="/repayments">Learn More</Link>
+              </Button>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-[1440px]">
+          <motion.div 
+            className="flex flex-col items-center justify-center space-y-4 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Ready to Get Started?</h2>
+              <p className="max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                Apply for a loan today and get the funds you need.
+              </p>
+            </div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button asChild size="lg">
+                <Link href="/counsel">Apply Now</Link>
+              </Button>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
     </div>
   );
 }

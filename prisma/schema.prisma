@@ -1,0 +1,200 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Counsel {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  counselId     Int      @unique
+  name          String
+  cellPhone     String
+  email         String
+  memo          String?
+  address       String?
+  addressDetail String?
+  zipCode       String?
+  appliedAt     DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isDeleted     Boolean  @default(false)
+
+  @@map("counsels")
+}
+
+model Terms {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  termsId        Int           @unique
+  name           String
+  termsDetailUrl String
+  content        String?       // 약관 내용
+  version        String?       // 약관 버전
+  isRequired     Boolean       @default(true) // 필수 동의 여부
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  isDeleted      Boolean       @default(false)
+  acceptTerms    AcceptTerms[]
+  userAgreements UserTermsAgreement[]
+
+  @@map("terms")
+}
+
+model Application {
+  id             String            @id @default(auto()) @map("_id") @db.ObjectId
+  applicationId  Int               @unique
+  name           String
+  cellPhone      String
+  email          String
+  interestRate   Float?
+  fee            Int?
+  maturity       DateTime?
+  hopeAmount     Int?
+  appliedAt      DateTime          @default(now())
+  approvalAmount Int?
+  contractedAt   DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  isDeleted      Boolean           @default(false)
+  
+  acceptTerms    AcceptTerms[]
+  judgments      Judgment[]
+  entries        Entry[]
+  balances       Balance[]
+  repayments     Repayment[]
+  files          ApplicationFile[]
+  contracts      contract[]
+
+  @@map("applications")
+}
+
+model AcceptTerms {
+  id             String      @id @default(auto()) @map("_id") @db.ObjectId
+  acceptTermsId  Int         @unique
+  applicationId  Int
+  termsId        Int
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  isDeleted      Boolean     @default(false)
+  
+  application    Application @relation(fields: [applicationId], references: [applicationId])
+  terms          Terms       @relation(fields: [termsId], references: [termsId])
+
+  @@map("accept_terms")
+}
+
+model Judgment {
+  id                   String      @id @default(auto()) @map("_id") @db.ObjectId
+  judgmentId           Int         @unique
+  applicationId        Int
+  name                 String
+  approvalAmount       Int
+  approvalInterestRate Float
+  reason               String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  isDeleted            Boolean     @default(false)
+  
+  application          Application @relation(fields: [applicationId], references: [applicationId])
+  contracts            contract[]
+
+  @@map("judgments")
+}
+
+model Entry {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  entryId       Int         @unique
+  applicationId Int
+  entryAmount   Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  isDeleted     Boolean     @default(false)
+  
+  application   Application @relation(fields: [applicationId], references: [applicationId])
+
+  @@map("entries")
+}
+
+model Balance {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  balanceId     Int         @unique
+  applicationId Int
+  balance       Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  isDeleted     Boolean     @default(false)
+  
+  application   Application @relation(fields: [applicationId], references: [applicationId])
+
+  @@map("balances")
+}
+
+model Repayment {
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
+  repaymentId     Int         @unique
+  applicationId   Int
+  repaymentAmount Int
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  isDeleted       Boolean     @default(false)
+  
+  application     Application @relation(fields: [applicationId], references: [applicationId])
+
+  @@map("repayments")
+}
+
+model contract {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  contractId    Int         @unique
+  applicationId Int
+  judgmentId    Int
+  amount        Int
+  interestRate  Float
+  term          Int         // months
+  status        String      @default("pending") // pending, signed, active, completed, cancelled
+  signedAt      DateTime?
+  activatedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  isDeleted     Boolean     @default(false)
+  
+  application   Application @relation(fields: [applicationId], references: [applicationId])
+  judgment      Judgment    @relation(fields: [judgmentId], references: [judgmentId])
+
+  @@map("contracts")
+}
+
+model ApplicationFile {
+  id                String      @id @default(auto()) @map("_id") @db.ObjectId
+  applicationFileId Int         @unique
+  applicationId     Int         // 숫자 ID 사용
+  fileName          String
+  contentType       String
+  data              Bytes
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  application       Application @relation(fields: [applicationId], references: [applicationId])
+
+  @@map("application_files")
+}
+
+model UserTermsAgreement {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  agreementId   Int      @unique
+  userId        String
+  termsId       Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isDeleted     Boolean  @default(false)
+  
+  terms         Terms    @relation(fields: [termsId], references: [termsId])
+
+  @@index([userId, termsId])
+  @@map("user_terms_agreements")
+}
