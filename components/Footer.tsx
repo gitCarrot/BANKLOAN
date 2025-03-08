@@ -22,7 +22,7 @@ const Footer = () => {
       <div className="container py-10 px-4 md:px-6 lg:px-8 max-w-[1440px] mx-auto">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">BankLoan</h3>
+            <h3 className="text-lg font-semibold">CarrotLoan</h3>
             <p className="text-sm text-muted-foreground">
               Providing reliable loan services since 2023.
             </p>
@@ -93,7 +93,7 @@ const Footer = () => {
         </div>
         
         <div className="mt-10 border-t pt-6 text-center text-sm text-muted-foreground">
-          <p>&copy; {currentYear} BankLoan. All rights reserved.</p>
+          <p>&copy; {currentYear} CarrotLoan. All rights reserved.</p>
         </div>
       </div>
     </motion.footer>

@@ -70,9 +70,9 @@ interface SystemSettings {
 // Mock data for settings
 const mockSettings: SystemSettings = {
   general: {
-    siteName: 'BankLoan Admin',
+    siteName: 'Carrot Loan Admin',
     siteDescription: 'Loan management system for financial institutions',
-    supportEmail: 'support@bankloan.example.com',
+    supportEmail: 'support@carrotloan.example.com',
     maintenanceMode: false,
   },
   notifications: {

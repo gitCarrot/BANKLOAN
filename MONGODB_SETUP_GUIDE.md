@@ -1,6 +1,6 @@
 # MongoDB Local Setup Guide
 
-This guide will help you set up a local MongoDB database for the BankLoan project.
+This guide will help you set up a local MongoDB database for the CarrotLoan project.
 
 ## 1. Install MongoDB Community Edition
 

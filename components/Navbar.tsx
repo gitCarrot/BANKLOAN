@@ -29,7 +29,7 @@ const Navbar = () => {
           className="pl-2 md:pl-4"
         >
           <Link href="/" className="flex items-center space-x-2">
-            <span className="font-bold text-xl">BankLoan</span>
+            <span className="font-bold text-xl">CarrotLoan</span>
           </Link>
         </motion.div>
 

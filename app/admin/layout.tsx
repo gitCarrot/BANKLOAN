@@ -101,7 +101,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 exit={{ opacity: 0 }}
                 className="text-xl font-bold"
               >
-                BankLoan Admin
+                CarrotLoan Admin
               </motion.span>
             )}
             {collapsed && (
@@ -155,7 +155,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 </div>
                 <div>
                   <p className="text-sm font-medium">Admin User</p>
-                  <p className="text-xs text-muted-foreground">admin@bankloan.com</p>
+                  <p className="text-xs text-muted-foreground">admin@carrotloan.com</p>
                 </div>
               </motion.div>
             )}
