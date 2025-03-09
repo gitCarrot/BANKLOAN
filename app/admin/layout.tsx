@@ -19,9 +19,14 @@ import {
   Receipt,
   FileCheck,
   ClipboardCheck,
+  User,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -52,24 +57,19 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       icon: <Scale className="h-5 w-5" />,
     },
     {
-      title: 'Contracts',
+      title: 'Loan Contracts',
       href: '/admin/contracts',
       icon: <FileSignature className="h-5 w-5" />,
     },
     {
-      title: 'Repayments',
+      title: 'Loan Repayments',
       href: '/admin/repayments',
       icon: <Receipt className="h-5 w-5" />,
     },
     {
-      title: 'Terms Management',
+      title: 'Terms & Conditions',
       href: '/admin/terms',
-      icon: <FileCheck className="h-5 w-5" />,
-    },
-    {
-      title: 'Terms Agreements',
-      href: '/admin/terms/agreements',
-      icon: <ClipboardCheck className="h-5 w-5" />,
+      icon: <ScrollText className="h-5 w-5" />,
     },
     {
       title: 'User Management',
@@ -83,123 +83,99 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
   ];
 
+  // 유저 모드로 전환하는 함수
+  const switchToUserMode = () => {
+    window.location.href = '/';
+  };
+
   return (
-    <div className="flex min-h-screen bg-muted/20">
+    <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <motion.aside
-        initial={{ width: 240 }}
-        animate={{ width: collapsed ? 80 : 240 }}
-        transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className="fixed left-0 top-0 z-20 flex h-full flex-col border-r bg-background"
+        className={cn(
+          'bg-background border-r flex flex-col h-screen fixed top-0 left-0 z-30 transition-all duration-300 ease-in-out',
+          collapsed ? 'w-[80px]' : 'w-[240px]'
+        )}
+        initial={{ x: -240 }}
+        animate={{ x: 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       >
-        <div className="flex h-16 items-center border-b px-4">
-          <Link href="/admin" className="flex items-center gap-2">
-            {!collapsed && (
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-xl font-bold"
-              >
-                CarrotLoan Admin
-              </motion.span>
-            )}
-            {collapsed && (
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-xl font-bold"
-              >
-                BL
-              </motion.span>
-            )}
-          </Link>
-        </div>
-        <div className="flex-1 overflow-auto py-4">
-          <nav className="grid gap-1 px-2">
-            {navItems.map((item, index) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted',
-                  item.href === '/admin' && 'bg-muted'
-                )}
-              >
-                {item.icon}
-                {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    {item.title}
-                  </motion.span>
-                )}
-              </Link>
-            ))}
-          </nav>
-        </div>
-        <div className="border-t p-4">
-          <div className="flex items-center justify-between">
-            {!collapsed && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center gap-2"
-              >
-                <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
-                  A
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Admin User</p>
-                  <p className="text-xs text-muted-foreground">admin@carrotloan.com</p>
-                </div>
-              </motion.div>
-            )}
+        <div className="flex flex-col h-full p-4">
+          {/* 사이드바 헤더 */}
+          <div className="flex items-center justify-between mb-6">
+            <div className={cn("flex items-center", collapsed ? "justify-center w-full" : "")}>
+              {!collapsed && (
+                <Link href="/admin" className="flex items-center space-x-2">
+                  <LayoutDashboard className="h-6 w-6 text-primary" />
+                  <span className="font-bold text-xl">Admin</span>
+                </Link>
+              )}
+              {collapsed && (
+                <LayoutDashboard className="h-6 w-6 text-primary" />
+              )}
+            </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setCollapsed(!collapsed)}
-              className="h-8 w-8"
+              className={collapsed ? "mx-auto" : ""}
             >
               {collapsed ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-4 w-4"
-                >
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
+                <ChevronRight className="h-4 w-4" />
               ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-4 w-4"
-                >
-                  <path d="m15 18-6-6 6-6" />
-                </svg>
+                <ChevronLeft className="h-4 w-4" />
               )}
             </Button>
           </div>
+
+          {/* 유저 모드 전환 토글 */}
+          <div className={cn(
+            "flex items-center mb-6 p-2 bg-muted/50 rounded-lg",
+            collapsed ? "justify-center" : "justify-between"
+          )}>
+            {!collapsed && (
+              <div className="flex items-center space-x-2">
+                <User className="h-5 w-5 text-primary" />
+                <Label htmlFor="user-mode" className="font-medium text-sm">
+                  Go to User Mode
+                </Label>
+              </div>
+            )}
+            {collapsed && (
+              <User className="h-5 w-5 text-primary" />
+            )}
+            <Switch
+              id="user-mode"
+              onCheckedChange={switchToUserMode}
+              className={collapsed ? "mt-2" : ""}
+            />
+          </div>
+
           <Separator className="my-4" />
-          <Button variant="outline" className="w-full justify-start gap-2">
+
+          {/* 네비게이션 메뉴 */}
+          <nav className="space-y-2 flex-1 overflow-y-auto">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex items-center py-2 px-3 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors',
+                  collapsed ? 'justify-center' : 'justify-start'
+                )}
+              >
+                <div className="flex items-center">
+                  {item.icon}
+                  {!collapsed && <span className="ml-3">{item.title}</span>}
+                </div>
+              </Link>
+            ))}
+          </nav>
+          <Separator className="my-4" />
+          <Button 
+            variant="default" 
+            className="w-full justify-start gap-2"
+          >
             <LogOut className="h-4 w-4" />
             {!collapsed && <span>Log out</span>}
           </Button>

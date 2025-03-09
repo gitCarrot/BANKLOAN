@@ -228,7 +228,7 @@ export default function Home() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Button asChild variant="outline" size="lg">
+                  <Button asChild variant="default" size="lg">
                     <Link href="/about">Learn More</Link>
                   </Button>
                 </motion.div>
@@ -240,14 +240,92 @@ export default function Home() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <div className="relative h-[350px] w-full overflow-hidden rounded-xl bg-muted">
-                <Image
-                  src="https://images.unsplash.com/photo-1579621970795-87facc2f976d?q=80&w=2070&auto=format&fit=crop"
-                  alt="Banking illustration"
-                  fill
-                  className="object-cover"
-                  priority
-                />
+              <div className="relative h-[350px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-orange-100 to-green-100 p-8 flex items-center justify-center">
+                <motion.div 
+                  className="absolute"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1, rotate: [0, 10, 0] }}
+                  transition={{ 
+                    duration: 0.8, 
+                    delay: 0.5,
+                    rotate: {
+                      repeat: Infinity,
+                      repeatType: "reverse",
+                      duration: 5
+                    }
+                  }}
+                >
+                  <div className="relative w-40 h-40 md:w-48 md:h-48">
+                    <svg viewBox="0 0 24 24" className="w-full h-full text-orange-500 fill-current">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
+                      <path d="M12 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                      <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 6c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
+                    </svg>
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-16 bg-green-500 rounded-t-full"></div>
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/4 w-8 h-8 bg-green-600 rounded-full transform rotate-45"></div>
+                  </div>
+                </motion.div>
+                
+                <motion.div 
+                  className="absolute bottom-12 right-12"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1, y: [0, -10, 0] }}
+                  transition={{ 
+                    duration: 0.5, 
+                    delay: 0.8,
+                    y: {
+                      repeat: Infinity,
+                      repeatType: "reverse",
+                      duration: 3
+                    }
+                  }}
+                >
+                  <div className="relative w-24 h-24 md:w-32 md:h-32">
+                    <svg viewBox="0 0 24 24" className="w-full h-full text-green-600 fill-current">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
+                      <path d="M12.31 11.14c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.86 2.97V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z" />
+                    </svg>
+                  </div>
+                </motion.div>
+                
+                <motion.div 
+                  className="absolute top-12 left-12"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1, rotate: [0, -10, 0] }}
+                  transition={{ 
+                    duration: 0.6, 
+                    delay: 1,
+                    rotate: {
+                      repeat: Infinity,
+                      repeatType: "reverse",
+                      duration: 4
+                    }
+                  }}
+                >
+                  <div className="relative w-20 h-20 md:w-28 md:h-28">
+                    <svg viewBox="0 0 24 24" className="w-full h-full text-yellow-500 fill-current">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
+                      <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                    </svg>
+                  </div>
+                </motion.div>
+                
+                <motion.div
+                  className="absolute"
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    opacity: [0.7, 1, 0.7]
+                  }}
+                  transition={{ 
+                    duration: 3,
+                    repeat: Infinity,
+                    repeatType: "reverse"
+                  }}
+                >
+                  <h2 className="text-3xl md:text-4xl font-bold text-center text-orange-600">
+                    Carrot<span className="text-green-600">Loan</span>
+                  </h2>
+                </motion.div>
               </div>
             </motion.div>
           </div>

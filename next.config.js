@@ -12,10 +12,13 @@ const nextConfig = {
   
   // 웹팩 설정
   webpack: (config, { dev, isServer }) => {
-    // 개발 환경에서 캐시 비활성화
-    if (dev) {
-      config.cache = false;
-    }
+    // 캐싱 비활성화
+    config.cache = false;
+    
+    // 웹팩 로깅 레벨 설정
+    config.infrastructureLogging = {
+      level: 'verbose',
+    };
     
     // AWS Lambda 환경에서 서버 액션 지원을 위한 설정
     if (isServer) {
@@ -40,6 +43,16 @@ const nextConfig = {
     // 동시에 유지할 페이지 수
     pagesBufferLength: 2,
   },
+  
+  // 빌드 로그 자세히 표시
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
+  
+  // 빌드 통계 활성화
+  productionBrowserSourceMaps: true,
   
   // 서버 액션 관련 설정
   experimental: {

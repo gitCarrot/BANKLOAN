@@ -25,7 +25,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Carrot Loan - Modern Banking Solutions",
+  title: "BankLoan - Modern Banking Solutions",
   description: "Providing reliable loan services for all your financial needs",
 };
 
