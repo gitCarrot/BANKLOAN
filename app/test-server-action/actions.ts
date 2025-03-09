@@ -5,6 +5,12 @@ import { PrismaClient } from '@prisma/client';
 
 // 서버 액션 테스트 함수
 export async function testServerAction() {
+  const results = {
+    mongoDbTest: null,
+    prismaTest: null,
+    serverInfo: null,
+  };
+  
   try {
     console.log('서버 액션 실행 시작');
     
@@ -17,52 +23,78 @@ export async function testServerAction() {
     }
     
     // 1. MongoDB 직접 연결 테스트
-    console.log('MongoDB 직접 연결 테스트 시작...');
-    const client = new MongoClient(databaseUrl);
-    await client.connect();
-    console.log('MongoDB 직접 연결 성공!');
-    
-    // 데이터베이스 목록 가져오기
-    const adminDb = client.db('admin');
-    const dbs = await adminDb.admin().listDatabases();
-    const dbList = dbs.databases.map(db => db.name);
-    
-    // 컬렉션 목록 가져오기
-    const db = client.db('carrotloan');
-    const collections = await db.listCollections().toArray();
-    const collectionList = collections.map(col => col.name);
-    
-    await client.close();
-    console.log('MongoDB 직접 연결 테스트 종료');
+    try {
+      console.log('MongoDB 직접 연결 테스트 시작...');
+      const client = new MongoClient(databaseUrl);
+      await client.connect();
+      console.log('MongoDB 직접 연결 성공!');
+      
+      // 데이터베이스 목록 가져오기
+      const adminDb = client.db('admin');
+      const dbs = await adminDb.admin().listDatabases();
+      const dbList = dbs.databases.map(db => db.name);
+      
+      // 컬렉션 목록 가져오기
+      const db = client.db('carrotloan');
+      const collections = await db.listCollections().toArray();
+      const collectionList = collections.map(col => col.name);
+      
+      await client.close();
+      console.log('MongoDB 직접 연결 테스트 종료');
+      
+      results.mongoDbTest = {
+        success: true,
+        databases: dbList,
+        collections: collectionList,
+      };
+    } catch (mongoError) {
+      console.error('MongoDB 연결 테스트 실패:', mongoError);
+      results.mongoDbTest = {
+        success: false,
+        error: mongoError instanceof Error ? mongoError.message : String(mongoError),
+      };
+    }
     
     // 2. Prisma 연결 테스트
-    console.log('Prisma 연결 테스트 시작...');
-    const prisma = new PrismaClient();
-    
-    // 간단한 쿼리 실행
-    const counselCount = await prisma.counsel.count();
-    console.log(`Counsel 테이블 레코드 수: ${counselCount}`);
-    
-    await prisma.$disconnect();
-    console.log('Prisma 연결 테스트 종료');
+    try {
+      console.log('Prisma 연결 테스트 시작...');
+      const prisma = new PrismaClient();
+      
+      // 간단한 쿼리 실행
+      const counselCount = await prisma.counsel.count();
+      console.log(`Counsel 테이블 레코드 수: ${counselCount}`);
+      
+      await prisma.$disconnect();
+      console.log('Prisma 연결 테스트 종료');
+      
+      results.prismaTest = {
+        success: true,
+        counselCount,
+      };
+    } catch (prismaError) {
+      console.error('Prisma 연결 테스트 실패:', prismaError);
+      results.prismaTest = {
+        success: false,
+        error: prismaError instanceof Error ? prismaError.message : String(prismaError),
+        stack: prismaError instanceof Error ? prismaError.stack : undefined,
+      };
+    }
     
     // 3. 서버 환경 정보 수집
-    const serverInfo = {
+    results.serverInfo = {
       nodeEnv: process.env.NODE_ENV,
       nodeVersion: process.version,
       platform: process.platform,
       arch: process.arch,
       amplifyBranch: process.env.AWS_BRANCH,
       amplifyRegion: process.env.AWS_REGION,
+      prismaVersion: require('@prisma/client/package.json').version,
     };
     
     return {
-      success: true,
-      message: '서버 액션이 성공적으로 실행되었습니다.',
-      databases: dbList,
-      collections: collectionList,
-      counselCount,
-      serverInfo,
+      success: results.mongoDbTest?.success || results.prismaTest?.success,
+      message: '서버 액션이 실행되었습니다.',
+      results,
       timestamp: new Date().toISOString(),
     };
   } catch (error) {
@@ -72,6 +104,7 @@ export async function testServerAction() {
       success: false,
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
+      results,
       timestamp: new Date().toISOString(),
     };
   }

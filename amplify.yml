@@ -8,7 +8,9 @@ frontend:
         - "echo \"DATABASE_URL=$DATABASE_URL\" > .env.local"
         - "echo \"DATABASE_URL=$DATABASE_URL\" > .env"
         - npm ci --legacy-peer-deps
+        - "echo \"Prisma 생성 시작 (AWS Lambda 환경용 바이너리 타겟 포함)...\""
         - npx prisma generate
+        - "echo \"데이터베이스 푸시 시작...\""
         - npx prisma db push --accept-data-loss
     build:
       commands:
