@@ -9,7 +9,8 @@ if (!process.env.DATABASE_URL) {
   }
 }
 
-const uri = process.env.DATABASE_URL;
+// 타입 단언을 사용하여 uri가 string 타입임을 보장
+const uri = process.env.DATABASE_URL as string;
 const options = {};
 
 let client;
@@ -17,7 +18,7 @@ let clientPromise: Promise<MongoClient>;
 
 if (process.env.NODE_ENV === 'development') {
   // 개발 환경에서는 전역 변수를 사용하여 연결 유지
-  let globalWithMongo = global as typeof globalThis & {
+  const globalWithMongo = global as typeof globalThis & {
     _mongoClientPromise?: Promise<MongoClient>;
   };
 
