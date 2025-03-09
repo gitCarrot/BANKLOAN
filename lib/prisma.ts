@@ -6,6 +6,15 @@ import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
+// 환경 변수 확인
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL 환경 변수가 설정되지 않았습니다.');
+  // 프로덕션 환경에서는 오류를 발생시키고, 개발 환경에서는 경고만 표시
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('DATABASE_URL 환경 변수가 필요합니다.');
+  }
+}
+
 // Create a new PrismaClient instance
 export const prisma = globalForPrisma.prisma || new PrismaClient({
   datasources: {
