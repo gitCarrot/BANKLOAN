@@ -17,6 +17,19 @@ const nextConfig = {
       config.cache = false;
     }
     
+    // AWS Lambda 환경에서 서버 액션 지원을 위한 설정
+    if (isServer) {
+      // 서버 액션을 위한 폴리필 추가
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        net: false,
+        dns: false,
+        tls: false,
+        fs: false,
+        path: false,
+      };
+    }
+    
     return config;
   },
   
@@ -26,6 +39,16 @@ const nextConfig = {
     maxInactiveAge: 60 * 1000,
     // 동시에 유지할 페이지 수
     pagesBufferLength: 2,
+  },
+  
+  // 서버 액션 관련 설정
+  experimental: {
+    serverActions: {
+      // 서버 액션 허용
+      allowedOrigins: ['localhost:3000', '*.amplifyapp.com'],
+      // 서버 액션 타임아웃 설정 (ms)
+      bodySizeLimit: '2mb',
+    },
   },
 };
 
