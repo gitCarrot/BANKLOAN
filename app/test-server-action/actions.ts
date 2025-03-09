@@ -2,10 +2,42 @@
 
 import { MongoClient } from 'mongodb';
 import { PrismaClient } from '@prisma/client';
+// package.json에서 버전 정보를 가져오기 위한 import
+import { version as prismaVersion } from '@prisma/client/package.json';
 
 // 서버 액션 테스트 함수
 export async function testServerAction() {
-  const results = {
+  // 타입 정의
+  interface MongoDbTestResult {
+    success: boolean;
+    databases?: string[];
+    collections?: string[];
+    error?: string;
+  }
+  
+  interface PrismaTestResult {
+    success: boolean;
+    counselCount?: number;
+    error?: string;
+    stack?: string;
+  }
+  
+  interface ServerInfo {
+    nodeEnv: string | undefined;
+    nodeVersion: string;
+    platform: string;
+    arch: string;
+    amplifyBranch: string | undefined;
+    amplifyRegion: string | undefined;
+    prismaVersion: string;
+  }
+  
+  // 결과 객체 초기화
+  const results: {
+    mongoDbTest: MongoDbTestResult | null;
+    prismaTest: PrismaTestResult | null;
+    serverInfo: ServerInfo | null;
+  } = {
     mongoDbTest: null,
     prismaTest: null,
     serverInfo: null,
@@ -88,11 +120,11 @@ export async function testServerAction() {
       arch: process.arch,
       amplifyBranch: process.env.AWS_BRANCH,
       amplifyRegion: process.env.AWS_REGION,
-      prismaVersion: require('@prisma/client/package.json').version,
+      prismaVersion,
     };
     
     return {
-      success: results.mongoDbTest?.success || results.prismaTest?.success,
+      success: results.mongoDbTest?.success === true || results.prismaTest?.success === true,
       message: '서버 액션이 실행되었습니다.',
       results,
       timestamp: new Date().toISOString(),
