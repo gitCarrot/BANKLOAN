@@ -3,10 +3,10 @@ frontend:
   phases:
     preBuild:
       commands:
-        - echo "환경 변수 확인 중..."
-        - echo "DATABASE_URL이 설정되어 있는지 확인 ${DATABASE_URL:0:10}..."
-        - echo "DATABASE_URL=$DATABASE_URL" > .env.local
-        - echo "DATABASE_URL=$DATABASE_URL" > .env
+        - "echo \"환경 변수 확인 중...\""
+        - "echo \"DATABASE_URL이 설정되어 있는지 확인: ${DATABASE_URL:0:10}...\""
+        - "echo \"DATABASE_URL=$DATABASE_URL\" > .env.local"
+        - "echo \"DATABASE_URL=$DATABASE_URL\" > .env"
         - npm ci --legacy-peer-deps
         - npx prisma generate
         - npx prisma db push --accept-data-loss
