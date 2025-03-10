@@ -84,10 +84,83 @@ export default function CounselPage() {
     >
       <div className="max-w-3xl mx-auto">
         <h1 className="text-4xl font-bold mb-8 text-center">Loan Consultation</h1>
-        <p className="text-lg text-center mb-12">
+        <p className="text-lg text-center mb-6">
           Fill out the form below to request a consultation with our loan specialists.
           We'll get back to you within 24 hours.
         </p>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6 }}
+          className="mb-10 rounded-xl overflow-hidden border bg-card shadow-sm"
+        >
+          <div className="p-6 bg-muted/30">
+            <h2 className="text-xl font-semibold mb-2">Consultation Process</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              How our consultation service works to help you find the right loan
+            </p>
+            
+            <div className="grid gap-6 md:grid-cols-3">
+              {[
+                {
+                  step: 1,
+                  title: "Request Consultation",
+                  description: "Complete the form below to request personalized assistance"
+                },
+                {
+                  step: 2,
+                  title: "Expert Assignment",
+                  description: "A dedicated loan specialist will be assigned to contact you"
+                },
+                {
+                  step: 3,
+                  title: "Tailored Guidance",
+                  description: "Receive customized advice on the best loan options for your needs"
+                }
+              ].map((item, index) => (
+                <motion.div
+                  key={item.step}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 * (index + 1) }}
+                  className="relative"
+                >
+                  <div className="flex flex-col h-full p-4 rounded-lg bg-background border">
+                    <div className="flex items-center mb-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-3 shrink-0">
+                        {item.step}
+                      </div>
+                      <h3 className="font-medium">{item.title}</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{item.description}</p>
+                    
+                    {index < 2 && (
+                      <div className="hidden md:block absolute top-1/2 -right-3 transform -translate-y-1/2 z-10">
+                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                            <path d="m9 18 6-6-6-6"/>
+                          </svg>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.5 }}
+              className="mt-6 p-3 rounded-lg bg-primary/5 border border-primary/10"
+            >
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-primary">Note:</span> We'll contact you within 24 hours of your request. Consultations are free and come with no obligation to proceed with a loan application.
+              </p>
+            </motion.div>
+          </div>
+        </motion.div>
 
         {error && (
           <Alert variant="destructive" className="mb-6">

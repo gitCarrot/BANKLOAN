@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,45 +20,11 @@ import {
   Legend
 } from 'recharts';
 import { ArrowUpRight, CreditCard, DollarSign, FileText, Users } from 'lucide-react';
-
-// Mock data for charts
-const loanConsultationsData = [
-  { name: 'Jan', count: 85 },
-  { name: 'Feb', count: 72 },
-  { name: 'Mar', count: 93 },
-  { name: 'Apr', count: 87 },
-  { name: 'May', count: 65 },
-  { name: 'Jun', count: 72 },
-  { name: 'Jul', count: 58 },
-];
-
-const loanApplicationsData = [
-  { name: 'Jan', count: 65 },
-  { name: 'Feb', count: 59 },
-  { name: 'Mar', count: 80 },
-  { name: 'Apr', count: 81 },
-  { name: 'May', count: 56 },
-  { name: 'Jun', count: 55 },
-  { name: 'Jul', count: 40 },
-];
-
-const loanStatusData = [
-  { name: 'Approved', value: 540 },
-  { name: 'Pending', value: 260 },
-  { name: 'Rejected', value: 170 },
-];
-
-const revenueData = [
-  { name: 'Jan', value: 12000 },
-  { name: 'Feb', value: 19000 },
-  { name: 'Mar', value: 15000 },
-  { name: 'Apr', value: 22000 },
-  { name: 'May', value: 18000 },
-  { name: 'Jun', value: 25000 },
-  { name: 'Jul', value: 27000 },
-];
-
-const COLORS = ['#0088FE', '#FFBB28', '#FF8042'];
+import { getApplications } from '@/app/actions/applications';
+import { getJudgments } from '@/app/actions/judgments';
+import { getContracts } from '@/app/actions/contracts';
+import { getRepayments } from '@/app/actions/repayments';
+import { getCounsels } from '@/app/actions/counsels';
 
 // 타입 정의
 interface PieChartLabelProps {
@@ -65,7 +32,148 @@ interface PieChartLabelProps {
   percent: number;
 }
 
+interface DashboardStats {
+  totalConsultations: number;
+  totalApplications: number;
+  activeLoans: number;
+  totalRevenue: number;
+  activeUsers: number;
+  consultationsData: { name: string; count: number }[];
+  applicationsData: { name: string; count: number }[];
+  loanStatusData: { name: string; value: number }[];
+  revenueData: { name: string; value: number }[];
+}
+
+const COLORS = ['#0088FE', '#FFBB28', '#FF8042'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 export default function AdminDashboard() {
+  const [stats, setStats] = useState<DashboardStats>({
+    totalConsultations: 0,
+    totalApplications: 0,
+    activeLoans: 0,
+    totalRevenue: 0,
+    activeUsers: 0,
+    consultationsData: [],
+    applicationsData: [],
+    loanStatusData: [],
+    revenueData: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        setLoading(true);
+        
+        // Fetch all data in parallel
+        const [applications, judgments, contracts, repayments, counsels] = await Promise.all([
+          getApplications(),
+          getJudgments(),
+          getContracts(),
+          getRepayments('all'),
+          getCounsels()
+        ]);
+        
+        // Calculate total consultations
+        const totalConsultations = counsels.length;
+        
+        // Calculate total applications
+        const totalApplications = applications.length;
+        
+        // Calculate active loans (contracts that are active)
+        const activeLoans = contracts.filter(contract => 
+          !contract.isDeleted
+        ).length;
+        
+        // Calculate total revenue (sum of all repayments)
+        const totalRevenue = repayments.reduce((sum, repayment) => 
+          sum + repayment.repaymentAmount, 0
+        );
+        
+        // Calculate active users (unique users from applications)
+        const uniqueUsers = new Set(applications.map(app => app.email));
+        const activeUsers = uniqueUsers.size;
+        
+        // Prepare monthly consultation data
+        const consultationsData = prepareMonthlyData(counsels);
+        
+        // Prepare monthly application data
+        const applicationsData = prepareMonthlyData(applications);
+        
+        // Prepare loan status data
+        const approvedCount = judgments.filter(j => j.approvalAmount > 0).length;
+        const pendingCount = applications.length - judgments.length;
+        const rejectedCount = judgments.filter(j => j.approvalAmount === 0).length;
+        
+        const loanStatusData = [
+          { name: 'Approved', value: approvedCount },
+          { name: 'Pending', value: pendingCount },
+          { name: 'Rejected', value: rejectedCount }
+        ];
+        
+        // Prepare monthly revenue data
+        const revenueData = prepareMonthlyRevenueData(repayments);
+        
+        setStats({
+          totalConsultations,
+          totalApplications,
+          activeLoans,
+          totalRevenue,
+          activeUsers,
+          consultationsData,
+          applicationsData,
+          loanStatusData,
+          revenueData
+        });
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchDashboardData();
+  }, []);
+  
+  // Helper function to prepare monthly data
+  function prepareMonthlyData(data: any[]) {
+    const currentYear = new Date().getFullYear();
+    const monthlyData = MONTHS.map(month => ({ name: month, count: 0 }));
+    
+    data.forEach(item => {
+      const date = new Date(item.appliedAt || item.createdAt);
+      if (date && date.getFullYear() === currentYear) {
+        const monthIndex = date.getMonth();
+        if (monthIndex >= 0 && monthIndex < 12) {
+          monthlyData[monthIndex].count += 1;
+        }
+      }
+    });
+    
+    // Return only the last 7 months
+    return monthlyData.slice(0, 7);
+  }
+  
+  // Helper function to prepare monthly revenue data
+  function prepareMonthlyRevenueData(repayments: any[]) {
+    const currentYear = new Date().getFullYear();
+    const monthlyData = MONTHS.map(month => ({ name: month, value: 0 }));
+    
+    repayments.forEach(repayment => {
+      const date = new Date(repayment.createdAt);
+      if (date && date.getFullYear() === currentYear) {
+        const monthIndex = date.getMonth();
+        if (monthIndex >= 0 && monthIndex < 12) {
+          monthlyData[monthIndex].value += repayment.repaymentAmount;
+        }
+      }
+    });
+    
+    // Return only the last 7 months
+    return monthlyData.slice(0, 7);
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -86,7 +194,7 @@ export default function AdminDashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">532</div>
+            <div className="text-2xl font-bold">{stats.totalConsultations}</div>
             <p className="text-xs text-muted-foreground">
               +15.3% from last month
             </p>
@@ -98,7 +206,7 @@ export default function AdminDashboard() {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">970</div>
+            <div className="text-2xl font-bold">{stats.totalApplications}</div>
             <p className="text-xs text-muted-foreground">
               +20.1% from last month
             </p>
@@ -110,7 +218,7 @@ export default function AdminDashboard() {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">540</div>
+            <div className="text-2xl font-bold">{stats.activeLoans}</div>
             <p className="text-xs text-muted-foreground">
               +12.5% from last month
             </p>
@@ -122,21 +230,9 @@ export default function AdminDashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$138,000</div>
+            <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               +18.2% from last month
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1,250</div>
-            <p className="text-xs text-muted-foreground">
-              +10.5% from last month
             </p>
           </CardContent>
         </Card>
@@ -161,7 +257,7 @@ export default function AdminDashboard() {
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart
-                      data={loanConsultationsData}
+                      data={stats.consultationsData}
                       margin={{
                         top: 5,
                         right: 30,
@@ -191,7 +287,7 @@ export default function AdminDashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={loanStatusData}
+                        data={stats.loanStatusData}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
@@ -200,7 +296,7 @@ export default function AdminDashboard() {
                         fill="#8884d8"
                         dataKey="value"
                       >
-                        {loanStatusData.map((entry, index) => (
+                        {stats.loanStatusData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
@@ -210,8 +306,6 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card className="col-span-2">
               <CardHeader>
                 <CardTitle>Loan Applications</CardTitle>
@@ -223,7 +317,7 @@ export default function AdminDashboard() {
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={loanApplicationsData}
+                      data={stats.applicationsData}
                       margin={{
                         top: 5,
                         right: 30,
@@ -241,18 +335,18 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="col-span-1">
+            <Card>
               <CardHeader>
                 <CardTitle>Revenue</CardTitle>
                 <CardDescription>
-                  Monthly revenue from loan interest and fees
+                  Monthly revenue from loan repayments
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-2">
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart
-                      data={revenueData}
+                      data={stats.revenueData}
                       margin={{
                         top: 5,
                         right: 30,
@@ -264,105 +358,19 @@ export default function AdminDashboard() {
                       <XAxis dataKey="name" />
                       <YAxis />
                       <Tooltip formatter={(value: number) => [`$${value}`, 'Revenue']} />
-                      <Line type="monotone" dataKey="value" stroke="#8884d8" activeDot={{ r: 8 }} />
+                      <Line type="monotone" dataKey="value" stroke="#8884d8" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-            <Card className="col-span-4">
-              <CardHeader>
-                <CardTitle>Revenue</CardTitle>
-                <CardDescription>
-                  Monthly revenue from loan interest and fees
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-2">
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={revenueData}
-                      margin={{
-                        top: 5,
-                        right: 30,
-                        left: 20,
-                        bottom: 5,
-                      }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(value: number) => [`$${value}`, 'Revenue']} />
-                      <Line type="monotone" dataKey="value" stroke="#8884d8" activeDot={{ r: 8 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="col-span-3">
-              <CardHeader>
-                <CardTitle>Recent Activities</CardTitle>
-                <CardDescription>
-                  Latest activities in the system
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { action: 'Loan Approved', user: 'John Doe', time: '2 hours ago', amount: '$15,000' },
-                    { action: 'New Application', user: 'Jane Smith', time: '3 hours ago', amount: '$25,000' },
-                    { action: 'Loan Rejected', user: 'Bob Johnson', time: '5 hours ago', amount: '$50,000' },
-                    { action: 'Payment Received', user: 'Alice Brown', time: '6 hours ago', amount: '$2,500' },
-                    { action: 'Contract Signed', user: 'Charlie Wilson', time: '8 hours ago', amount: '$30,000' },
-                  ].map((activity, index) => (
-                    <div key={index} className="flex items-center">
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm font-medium leading-none">
-                          {activity.action}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {activity.user} • {activity.time}
-                        </p>
-                      </div>
-                      <div className="text-sm font-medium">{activity.amount}</div>
-                    </div>
-                  ))}
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
         <TabsContent value="analytics" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Advanced Analytics</CardTitle>
-              <CardDescription>
-                Detailed analytics will be displayed here
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[400px] flex items-center justify-center border rounded-md">
-                <p className="text-muted-foreground">Advanced analytics content coming soon</p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Analytics content */}
         </TabsContent>
         <TabsContent value="reports" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Reports</CardTitle>
-              <CardDescription>
-                Generate and view reports
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[400px] flex items-center justify-center border rounded-md">
-                <p className="text-muted-foreground">Reports content coming soon</p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Reports content */}
         </TabsContent>
       </Tabs>
     </motion.div>

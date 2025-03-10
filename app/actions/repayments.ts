@@ -98,6 +98,27 @@ export async function createRepayment(applicationId: string, repaymentAmount: nu
  */
 export async function getRepayments(applicationId: string): Promise<RepaymentResponse[]> {
   try {
+    // 'all'이 전달되면 모든 상환 내역을 가져옴
+    if (applicationId === 'all') {
+      const allRepayments = await prisma.repayment.findMany({
+        where: {
+          isDeleted: false
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+      
+      return allRepayments.map(repayment => ({
+        repaymentId: repayment.repaymentId,
+        applicationId: repayment.applicationId,
+        repaymentAmount: repayment.repaymentAmount,
+        createdAt: repayment.createdAt,
+        updatedAt: repayment.updatedAt,
+        isDeleted: repayment.isDeleted
+      }));
+    }
+    
     const appId = parseInt(applicationId);
     
     // Check if application exists
@@ -115,7 +136,7 @@ export async function getRepayments(applicationId: string): Promise<RepaymentRes
     // Get all repayments for this application
     const repayments = await prisma.repayment.findMany({
       where: {
-        applicationId: appId, // Use numeric applicationId instead of MongoDB ObjectId
+        applicationId: appId,
         isDeleted: false
       },
       orderBy: {

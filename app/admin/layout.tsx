@@ -137,18 +137,24 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <div className="flex items-center space-x-2">
                 <User className="h-5 w-5 text-primary" />
                 <Label htmlFor="user-mode" className="font-medium text-sm">
-                  Go to User Mode
+                  User
                 </Label>
               </div>
             )}
             {collapsed && (
               <User className="h-5 w-5 text-primary" />
             )}
-            <Switch
-              id="user-mode"
-              onCheckedChange={switchToUserMode}
-              className={collapsed ? "mt-2" : ""}
-            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={switchToUserMode}
+              className={cn(
+                "flex items-center gap-2",
+                collapsed ? "mt-2 px-2" : ""
+              )}
+            >
+              {!collapsed ? "Go to User" : ""}
+            </Button>
           </div>
 
           <Separator className="my-4" />
